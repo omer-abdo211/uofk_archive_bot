@@ -1,17 +1,9 @@
-import logging
 import os
 from flask import Flask
 import telebot
 from telebot import types
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-logger = logging.getLogger(name)
-
 TOKEN = "876820599:AAFW7KhxgSZYuFeA6pZkK1LsL1Ai tQORRU"
-ADMIN_ID = 7192769549
 
 app = Flask('')
 
