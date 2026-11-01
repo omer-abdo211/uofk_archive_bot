@@ -7,7 +7,7 @@ from telebot import types
 
 # ===== الإعدادات =====
 # ضع التوكن في Render: Environment -> BOT_TOKEN
-TOKEN = os.environ.get("8768205999:AAGxMr6XFw3lkKHEWUuZkrFTrSbKChb4aH0")
+TOKEN = os.environ.get("BOT_TOKEN")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "7192769549"))
 
 if not TOKEN:
