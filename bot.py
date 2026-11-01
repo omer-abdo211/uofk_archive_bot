@@ -77,6 +77,7 @@ def echo_all(message):
         type_markup.add(t1, t2, t3)
         type_markup.add(back_mat)
         bot.reply_to(message, f"أنت اخترت مادة: {message.text}\nاختر نوع المحتوى المطلوب:", reply_markup=type_markup)
+        if
         elif message.text == 'شيتات':
         bot.reply_to(message, "هنا سيتم رفع وعرض الشيتات الخاصة بالمادة.")
     elif message.text == 'محاضرات':
