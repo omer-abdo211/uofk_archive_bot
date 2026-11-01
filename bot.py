@@ -10,7 +10,7 @@ from telebot import types
 
 # ===== الإعدادات (من Render -> Environment) =====
 TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_ID = int(os.environ.get("ADMIN_ID", "7192769549"))
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "7192709549"))
 # اختياري: لو تركتيه فاضي البوت بيتعرف على القناة لوحده
 ENV_CHANNEL = int(os.environ.get("CHANNEL_ID", "0"))
 
