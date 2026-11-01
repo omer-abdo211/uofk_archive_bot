@@ -61,4 +61,21 @@ def echo_all(message):
 
     elif message.text == 'شيتات':
         bot.reply_to(message, "هنا سيتم رفع وعرض الشيتات الخاصة بالمادة.")
-    elif message
+    elif message.text == 'محاضرات':
+        bot.reply_to(message, "هنا سيتم رفع وعرض المحاضرات الخاصة بالمادة.")
+    elif message.text == 'امتحانات سابقة':
+        bot.reply_to(message, "هنا سيتم رفع وعرض الامتحانات السابقة للمادة.")
+
+    elif message.text == 'ℹ️ معلومات عنا':
+        bot.reply_to(message, f"هذا البوت مخصص لمساعدة طلاب كلية الدراسات التقنية والتنموية - جامعة الخرطوم.\nمعرف المشرف: {ADMIN_ID}")
+    else:
+        bot.reply_to(message, "عجباً، لم أفهم هذا الأمر. استخدم الأزرار الظاهرة في القائمة.")
+
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+
+t = threading.Thread(target=run_flask)
+t.start()
+
+print("Bot is polling...")
+bot.infinity_polling()
