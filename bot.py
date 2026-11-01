@@ -4,7 +4,7 @@ import telebot
 from telebot import types
 import threading
 
-TOKEN = "876820599:AAFW7KhxgSZYuFeA6pZkK1LsL1AitQORRU"
+TOKEN = "8768205999:AAGxMr6XFw3lkKHEWUuZkrFTrSbKChb4aH0"
 ADMIN_ID = 7192769549
 
 app = Flask('')
@@ -79,7 +79,7 @@ def echo_all(message):
         type_markup.add(t1, t2, t3)
         type_markup.add(back_mat)
         bot.reply_to(message, f"أنت اخترت مادة: {text}\nاختر نوع المحتوى المطلوب:", reply_markup=type_markup)
-       elif text in ['شيتات', 'محاضرات', 'امتحانات سابقة']:
+        elif text in ['شيتات', 'محاضرات', 'امتحانات سابقة']:
         bot.reply_to(message, f"هنا سيتم رفع وعرض الـ ({text}) الخاصة بالمادة قريباً.")
 
     elif text == 'القائمة الرئيسية':
