@@ -1,65 +1,102 @@
-import os
-import threading
-
-import telebot
-from flask import Flask
-from telebot import types
-
-# ===== الإعدادات =====
-# ضع التوكن في Render: Environment -> BOT_TOKEN
-TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_ID = int(os.environ.get("ADMIN_ID", "7192769549"))
-
-if not TOKEN:
-    raise SystemExit("BOT_TOKEN غير موجود. أضفه في Environment Variables في Render.")
-
-bot = telebot.TeleBot(TOKEN)
-app = Flask("uofk_bot")
+def forward_source(message):
+    origin = getattr(message, "forward_origin", None)
+    if origin is not None and getattr(origin, "type", "") == "channel":
+        return origin.chat.id, origin.message_id
+    fc = getattr(message, "forward_from_chat", None)
+    fm = getattr(message, "forward_from_message_id", None)
+    if fc is not None and fm:
+        return fc.id, fm
+    return None
 
 
-@app.route("/")
-def home():
-    return "Bot is running 24/7 successfully!"
+# ===== استقبال ملفات القناة (فهرسة تلقائية) =====
+@bot.channel_post_handler(content_types=["document", "video", "audio", "photo"])
+def on_channel_post(message):
+    if not db["channel"]:
+        db["channel"] = message.chat.id
+        save_db()
+    if message.chat.id != db["channel"]:
+        return
+    name = file_name(message)
+    process_file(message.message_id, name, name + " " + (message.caption or ""))
 
 
-# ===== البيانات =====
-MAJORS = [
-    "هندسة التحكم الكهربائي",
-    "هندسة القدرة الكهربائية",
-    "هندسة الطبية",
-    "هندسة الشبكات",
-]
+# ===== ملفات محوّلة (Forward) من القناة للبوت - للمشرف فقط =====
+@bot.message_handler(
+    content_types=["document", "video", "audio", "photo"],
+    func=lambda m: m.chat.id == ADMIN_ID,
+)
+def on_admin_file(message):
+    src = forward_source(message)
+    if not src:
+        bot.reply_to(message, "حوّلي (Forward) الملف من القناة للبوت بدل رفعه مباشرة هنا.")
+        return
+    chat_id, mid = src
+    if not db["channel"]:
+        db["channel"] = chat_id
+        save_db()
+    if chat_id != db["channel"]:
+        bot.reply_to(message, "الملف ده من قناة غير القناة المسجلة.")
+        return
+    name = file_name(message)
+    process_file(mid, name, name + " " + (message.caption or ""))
 
-SEM1 = "المستوى الأول - السمستر الأول"
-SEM2 = "المستوى الأول - السمستر الثاني"
 
-SUBJECTS = {
-    SEM1: [
-        "لغة إنجليزية 1 (EE 111)",
-        "الحسبان (EE 112)",
-        "الفيزياء (EE 113)",
-        "مقدمة الحاسوب (EE 114)",
-        "أعمال الورش 1 (EE 115)",
-        "رسم هندسي (EE 116)",
-    ],
-    SEM2: [
-        "لغة إنجليزية 2 (EE 121)",
-        "أخلاقيات المهنة (EE 122)",
-        "الجبر الخطى والمعادلات التفاضلية (EE 123)",
-        "برمجة الحاسوب (EE 124)",
-        "أساسيات الهندسة الكهربائية (EE 125)",
-        "أساسيات الالكترونيات التماثلية (EE 126)",
-        "ميكانيكا الهندسة (ديناميكا واستاتيكا) (EE 127)",
-    ],
-}
-
-ALL_SUBJECTS = [s for subs in SUBJECTS.values() for s in subs]
-CONTENT_TYPES = ["شيتات", "محاضرات", "امتحانات سابقة"]
-MAIN_MENU = "القائمة الرئيسية"
-ABOUT = "ℹ️ معلومات عنا"
+# ===== أزرار اختيار المادة والنوع (للمشرف) =====
+@bot.callback_query_handler(func=lambda c: True)
+def on_callback(c):
+    if c.from_user.id != ADMIN_ID:
+        bot.answer_callback_query(c.id)
+        return
+    try:
+        parts = c.data.split("|")
+        kind = parts[0]
+        chat_id = c.message.chat.id
+        msg_id = c.message.message_id
+        if kind == "s":
+            mid, i = int(parts[1]), int(parts[2])
+            kb = types.InlineKeyboardMarkup(row_width=1)
+            for j, t in enumerate(CONTENT_TYPES):
+                kb.add(types.InlineKeyboardButton(t, callback_data=f"t|{mid}|{i}|{j}"))
+            bot.edit_message_text(
+                f"{ALL_SUBJECTS[i]}\nنوع الملف؟", chat_id, msg_id, reply_markup=kb
+            )
+        elif kind == "t":
+            mid, i, j = int(parts[1]), int(parts[2]), int(parts[3])
+            subject, ctype = ALL_SUBJECTS[i], CONTENT_TYPES[j]
+            add_file(code_of(subject), TYPE_KEYS[ctype], mid)
+            bot.edit_message_text(f"✅ تم: {subject} - {ctype}", chat_id, msg_id)
+        elif kind == "x":
+            bot.edit_message_text("تم التجاهل.", chat_id, msg_id)
+        elif kind == "m":
+            i = int(parts[1])
+            kb = types.InlineKeyboardMarkup(row_width=1)
+            for j, t in enumerate(CONTENT_TYPES):
+                kb.add(types.InlineKeyboardButton(t, callback_data=f"n|{i}|{j}"))
+            bot.edit_message_text(
+                f"{ALL_SUBJECTS[i]}\nنوع الملفات؟", chat_id, msg_id, reply_markup=kb
+            )
+        elif kind == "n":
+            i, j = int(parts[1]), int(parts[2])
+            subject, ctype = ALL_SUBJECTS[i], CONTENT_TYPES[j]
+            mode["code"] = code_of(subject)
+            mode["t"] = TYPE_KEYS[ctype]
+            bot.edit_message_text(
+                f"✅ وضع التسجيل شغال: {subject} - {ctype}\n"
+                "حوّلي (Forward) أو ارفعي الملفات الآن وكلها تتسجل هنا.\n"
+                "للإيقاف اكتبي /modeoff",
+                chat_id,
+                msg_id,
+            )
+    except Exception as e:
+        print("callback error:", e)
+    bot.answer_callback_query(c.id)
 
 
 # ===== القوائم =====
+user_subject = {}
+
+
 def main_markup():
     m = types.ReplyKeyboardMarkup(resize_keyboard=True)
     m.add(MAJORS[0], MAJORS[1])
@@ -73,9 +110,7 @@ def semester_markup():
     m.add(SEM1, SEM2)
     m.add(MAIN_MENU)
     return m
-
-
-def subjects_markup(semester):
+    def subjects_markup(semester):
     m = types.ReplyKeyboardMarkup(resize_keyboard=True)
     for subject in SUBJECTS[semester]:
         m.add(subject)
@@ -90,6 +125,21 @@ def content_markup():
     return m
 
 
+def send_files(message, subject, ctype):
+    ids = db["files"].get(code_of(subject), {}).get(TYPE_KEYS[ctype], [])
+    channel = db["channel"]
+    if not ids or not channel:
+        bot.reply_to(message, f"لا توجد ملفات ({ctype}) لهذه المادة حالياً، سيتم رفعها قريباً.")
+        return
+    bot.reply_to(message, f"جاري إرسال {len(ids)} ملف... ⏳")
+    for mid in ids:
+        try:
+            bot.copy_message(message.chat.id, channel, mid)
+            time.sleep(0.4)
+        except Exception as e:
+            print("copy_message failed:", mid, e)
+
+
 # ===== الأوامر =====
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
@@ -98,6 +148,40 @@ def send_welcome(message):
         "مرحباً بك يا مهندس في بوت أرشيف هندسة جامعة الخرطوم! 🎓\nاختر التخصص المطلوب:",
         reply_markup=main_markup(),
     )
+
+
+@bot.message_handler(commands=["mode"])
+def set_mode(message):
+    if message.chat.id != ADMIN_ID:
+        return
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    for i, s in enumerate(ALL_SUBJECTS):
+        kb.add(types.InlineKeyboardButton(s, callback_data=f"m|{i}"))
+    bot.send_message(ADMIN_ID, "اختاري المادة اللي حترفعي ملفاتها:", reply_markup=kb)
+
+
+@bot.message_handler(commands=["modeoff"])
+def mode_off(message):
+    if message.chat.id != ADMIN_ID:
+        return
+    mode["code"] = None
+    mode["t"] = None
+    bot.reply_to(message, "تم إيقاف وضع التسجيل التلقائي.")
+
+
+@bot.message_handler(commands=["stats"])
+def stats(message):
+    if message.chat.id != ADMIN_ID:
+        return
+    lines = [f"القناة: {db['channel'] or 'غير محددة'}"]
+    for s in ALL_SUBJECTS:
+        d = db["files"].get(code_of(s), {})
+        total = sum(len(v) for v in d.values())
+        if total:
+            lines.append(
+                f"{s}: شيتات {len(d.get('s', []))} | محاضرات {len(d.get('l', []))} | امتحانات {len(d.get('e', []))}"
+            )
+    bot.reply_to(message, "\n".join(lines))
 
 
 @bot.message_handler(func=lambda message: True)
@@ -112,13 +196,10 @@ def handle_all(message):
         )
 
     elif text in SUBJECTS:
-        bot.reply_to(
-            message,
-            f"{text}: اختر المادة:",
-            reply_markup=subjects_markup(text),
-        )
+        bot.reply_to(message, f"{text}: اختر المادة:", reply_markup=subjects_markup(text))
 
     elif text in ALL_SUBJECTS:
+        user_subject[message.chat.id] = text
         bot.reply_to(
             message,
             f"أنت اخترت مادة: {text}\nاختر نوع المحتوى المطلوب:",
@@ -126,7 +207,11 @@ def handle_all(message):
         )
 
     elif text in CONTENT_TYPES:
-        bot.reply_to(message, f"هنا سيتم رفع وعرض المحتوى ({text}) الخاص بالمادة قريباً.")
+        subject = user_subject.get(message.chat.id)
+        if not subject:
+            bot.reply_to(message, "اختر المادة أولاً من القائمة الرئيسية.", reply_markup=main_markup())
+        else:
+            send_files(message, subject, text)
 
     elif text == MAIN_MENU:
         bot.reply_to(
@@ -153,5 +238,6 @@ def run_flask():
 
 threading.Thread(target=run_flask, daemon=True).start()
 bot.remove_webhook()
+load_db()
 print("Bot is polling...")
-bot.infinity_polling(skip_pending=True)
+bot.infinity_polling(skip_pending=True, allowed_updates=["message", "callback_query", "channel_post"])
