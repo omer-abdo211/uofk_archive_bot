@@ -42,7 +42,7 @@ main_menu_keyboard = [
     ["هندسة طبية", "هندسة شبكات"],
     ["التعريف بالبوت"],
 ]
-main_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True)
+main_markup = types.ReplyKeyboardMarkup(...)
 
 semesters_keyboard = [
     ["المستوى الأول", "المستوى الثاني"],
