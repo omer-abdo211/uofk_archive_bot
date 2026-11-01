@@ -103,20 +103,18 @@ def main_markup():
     m.add(MAJORS[2], MAJORS[3])
     m.add(ABOUT)
     return m
-
-
 def semester_markup():
     m = types.ReplyKeyboardMarkup(resize_keyboard=True)
     m.add(SEM1, SEM2)
     m.add(MAIN_MENU)
-    return
-    mdef subjects_markup(semester):
+    return m
+def subjects_markup(semester):
     m = types.ReplyKeyboardMarkup(resize_keyboard=True)
     for subject in SUBJECTS[semester]:
         m.add(subject)
     m.add(MAIN_MENU)
-    return 
-    m def content_markup():
+    return m
+def content_markup():
     m = types.ReplyKeyboardMarkup(resize_keyboard=True)
     m.add(*CONTENT_TYPES)
     m.add(MAIN_MENU)
