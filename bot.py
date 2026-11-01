@@ -4,18 +4,15 @@ from flask import Flask
 import telebot
 from telebot import types
 
-# إعدادات التسجيل
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(name)
 
-# إعدادات البوت والتوكن
-TOKEN = "8768205999:AAFScqbBy0iV18bOi3DSv7yOrGi-fl1vMJU"
+TOKEN = "876820599:AAFW7KhxgSZYuFeA6pZkK1LsL1Ai tQORRU"
 ADMIN_ID = 7192769549
 
-# إعداد سيرفر خفيف لضمان استمرار البوت 24/7 على Render
 app = Flask('')
 
 @app.route('/')
@@ -35,23 +32,31 @@ def send_welcome(message):
 
 @bot.message_handler(func=lambda message: True)
 def echo_all(message):
-    if message.text == '📚 الأرشيف والمحاضرات':
+    if message.text == '📚 الأرشيف والمحاضرات' or message.text == 'الرجوع للمواد':
         semesters_markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        bot.reply_to(message, "قريباً سيتم توفير روابط المحاضرات والمواد هنا.", reply_markup=semesters_markup)
+        item_s1 = types.KeyboardButton('شيتات')
+        item_s2 = types.KeyboardButton('محاضرات')
+        item_s3 = types.KeyboardButton('امتحانات سابقة')
+        semesters_markup.add(item_s1, item_s2, item_s3)
+        bot.reply_to(message, "اختر القسم المطلوب من الأرشيف:", reply_markup=semesters_markup)
+    elif message.text == 'شيتات':
+        bot.reply_to(message, "هنا سيتم عرض الشيتات الخاصة بالمواد.")
+    elif message.text == 'محاضرات':
+        bot.reply_to(message, "هنا سيتم عرض المحاضرات.")
+    elif message.text == 'امتحانات سابقة':
+        bot.reply_to(message, "هنا سيتم عرض الامتحانات السابقة.")
     elif message.text == 'ℹ️ معلومات عنا':
         bot.reply_to(message, "هذا البوت مخصص لمساعدة طلاب كلية الدراسات التقنية والتنموية - جامعة الخرطوم.")
     else:
         bot.reply_to(message, "عجباً، لم أفهم هذا الأمر. استخدم القائمة الرئيسية.")
 
-if __name__ == "__main__":
+if name == "main":
     import threading
-    # تشغيل سيرفر الـ Flask في الخلفية
     def run_flask():
         app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
     
     t = threading.Thread(target=run_flask)
     t.start()
     
-    # تشغيل بوت التليجرام
     print("Bot is polling...")
     bot.infinity_polling()
