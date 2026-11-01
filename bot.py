@@ -4,7 +4,7 @@ import telebot
 from telebot import types
 import threading
 
-TOKEN = "8768205999:AAFvG3jFRDIm6n8gnb9sBdZgBFNgEqqWOsA"
+TOKEN = "8768205999:AAGxMr6XFw3lkKHEWUuZkrFTrSbKChb4aH0"
 ADMIN_ID = 7192769549
 
 app = Flask('')
@@ -28,36 +28,57 @@ def echo_all(message):
     if message.text == '📚 الأرشيف والمحاضرات' or message.text == 'القائمة الرئيسية':
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         item1 = types.KeyboardButton('هندسة التحكم الكهربائي')
-        item2 = types.KeyboardButton('القائمة الرئيسية')
+        item2 = types.KeyboardButton('ℹ️ معلومات عنا')
         markup.add(item1, item2)
         bot.reply_to(message, "اختر التخصص المطلوب:", reply_markup=markup)
         
     elif message.text == 'هندسة التحكم الكهربائي':
         sem_markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        sem1 = types.KeyboardButton('السمستر الأول')
-        sem2 = types.KeyboardButton('السمستر الثاني')
+        sem1 = types.KeyboardButton('المستوى الأول - السمستر الأول')
+        sem2 = types.KeyboardButton('المستوى الأول - السمستر الثاني')
         back_main = types.KeyboardButton('📚 الأرشيف والمحاضرات')
         sem_markup.add(sem1, sem2)
         sem_markup.add(back_main)
         bot.reply_to(message, "اختر السمستر المطلوب:", reply_markup=sem_markup)
         
-    elif message.text == 'السمستر الأول' or message.text == 'السمستر الثاني':
+    elif message.text == 'المستوى الأول - السمستر الأول':
         sub_markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        sub1 = types.KeyboardButton('الدوائر الكهربائية (EEG125)')
-        back_sem = types.KeyboardButton('هندسة التحكم الكهربائي')
-        sub_markup.add(sub1)
-        sub_markup.add(back_sem)
-        bot.reply_to(message, f"أنت الآن في {message.text}. اختر المادة الدراسية:", reply_markup=sub_markup)
+        sub_markup.add(types.KeyboardButton('لغة إنجليزية 1 (EE 111)'))
+        sub_markup.add(types.KeyboardButton('الحسبان (EE 112)'))
+        sub_markup.add(types.KeyboardButton('الفيزياء (EE 113)'))
+        sub_markup.add(types.KeyboardButton('مقدمة الحاسوب (EE 114)'))
+        sub_markup.add(types.KeyboardButton('أعمال الورش 1 (EE 115)'))
+        sub_markup.add(types.KeyboardButton('رسم هندسي (EE 116)'))
+        sub_markup.add(types.KeyboardButton('هندسة التحكم الكهربائي'))
+        bot.reply_to(message, "مقررات السمستر الأول (كاملة): اختر المادة:", reply_markup=sub_markup)
 
-    elif message.text == 'الدوائر الكهربائية (EEG125)':
+    elif message.text == 'المستوى الأول - السمستر الثاني':
+        sub_markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        sub_markup.add(types.KeyboardButton('لغة إنجليزية 2 (EE 121)'))
+        sub_markup.add(types.KeyboardButton('أخلاقيات المهنة (EE 122)'))
+        sub_markup.add(types.KeyboardButton('الجبر الخطى والمعادلات (EE 123)'))
+        sub_markup.add(types.KeyboardButton('برمجة الحاسوب (EE 124)'))
+        sub_markup.add(types.KeyboardButton('أساسيات الهندسة الكهربائية (EE 125)'))
+        sub_markup.add(types.KeyboardButton('أساسيات الالكترونيات التماثلية (EE 126)'))
+        sub_markup.add(types.KeyboardButton('ميكانيكا الهندسة (EE 127)'))
+        sub_markup.add(types.KeyboardButton('هندسة التحكم الكهربائي'))
+        bot.reply_to(message, "مقررات السمستر الثاني (كاملة): اختر المادة:", reply_markup=sub_markup)
+
+    elif message.text in [
+        'لغة إنجليزية 1 (EE 111)', 'الحسبان (EE 112)', 'الفيزياء (EE 113)', 
+        'مقدمة الحاسوب (EE 114)', 'أعمال الورش 1 (EE 115)', 'رسم هندسي (EE 116)', 
+        'لغة إنجليزية 2 (EE 121)', 'أخلاقيات المهنة (EE 122)', 'الجبر الخطى والمعادلات (EE 123)', 
+        'برمجة الحاسوب (EE 124)', 'أساسيات الهندسة الكهربائية (EE 125)', 
+        'أساسيات الالكترونيات التماثلية (EE 126)', 'ميكانيكا الهندسة (EE 127)'
+    ]:
         type_markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         t1 = types.KeyboardButton('شيتات')
         t2 = types.KeyboardButton('محاضرات')
         t3 = types.KeyboardButton('امتحانات سابقة')
-        back_mat = types.KeyboardButton('السمستر الأول')
+        back_mat = types.KeyboardButton('هندسة التحكم الكهربائي')
         type_markup.add(t1, t2, t3)
         type_markup.add(back_mat)
-        bot.reply_to(message, "اختر نوع المحتوى المطلوب للمادة:", reply_markup=type_markup)
+        bot.reply_to(message, f"أنت اخترت مادة: {message.text}\nاختر نوع المحتوى المطلوب:", reply_markup=type_markup)
 
     elif message.text == 'شيتات':
         bot.reply_to(message, "هنا سيتم رفع وعرض الشيتات الخاصة بالمادة.")
