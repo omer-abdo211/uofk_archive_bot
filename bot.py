@@ -2,6 +2,7 @@ import os
 from flask import Flask
 import telebot
 from telebot import types
+import threading
 
 TOKEN = "876820599:AAFW7KhxgSZYuFeA6pZkK1LsL1AitQORRU"
 ADMIN_ID = 7192769549
@@ -42,13 +43,11 @@ def echo_all(message):
     else:
         bot.reply_to(message, "عجباً، لم أفهم هذا الأمر. استخدم القائمة الرئيسية.")
 
-if name == "main":
-    import threading
-    def run_flask():
-        app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    
-    t = threading.Thread(target=run_flask)
-    t.start()
-    
-    print("Bot is polling...")
-    bot.infinity_polling()
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+
+t = threading.Thread(target=run_flask)
+t.start()
+
+print("Bot is polling...")
+bot.infinity_polling()
