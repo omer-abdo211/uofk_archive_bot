@@ -1,3 +1,266 @@
+import json
+import os
+import re
+import threading
+import time
+
+import telebot
+from flask import Flask
+from telebot import types
+
+# ===== الإعدادات (من Render -> Environment) =====
+TOKEN = os.environ.get("BOT_TOKEN")
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "7192769549"))
+# اختياري: لو تركتيه فاضي البوت بيتعرف على القناة لوحده
+ENV_CHANNEL = int(os.environ.get("CHANNEL_ID", "0"))
+
+if not TOKEN:
+    raise SystemExit("BOT_TOKEN غير موجود. أضفه في Environment Variables في Render.")
+
+bot = telebot.TeleBot(TOKEN)
+app = Flask("uofk_bot")
+
+
+@app.route("/")
+def home():
+    return "Bot is running 24/7 successfully!"
+
+
+# ===== البيانات =====
+MAJORS = [
+    "هندسة التحكم الكهربائي",
+    "هندسة القدرة الكهربائية",
+    "هندسة الطبية",
+    "هندسة الشبكات",
+]
+
+SEM1 = "المستوى الأول - السمستر الأول"
+SEM2 = "المستوى الأول - السمستر الثاني"
+
+SUBJECTS = {
+    SEM1: [
+        "لغة إنجليزية 1 (EE 111)",
+        "الحسبان (EE 112)",
+        "الفيزياء (EE 113)",
+        "مقدمة الحاسوب (EE 114)",
+        "أعمال الورش 1 (EE 115)",
+        "رسم هندسي (EE 116)",
+    ],
+    SEM2: [
+        "لغة إنجليزية 2 (EE 121)",
+        "أخلاقيات المهنة (EE 122)",
+        "الجبر الخطى والمعادلات التفاضلية (EE 123)",
+        "برمجة الحاسوب (EE 124)",
+        "أساسيات الهندسة الكهربائية (EE 125)",
+        "أساسيات الالكترونيات التماثلية (EE 126)",
+        "ميكانيكا الهندسة (ديناميكا واستاتيكا) (EE 127)",
+    ],
+}
+
+ALL_SUBJECTS = [s for subs in SUBJECTS.values() for s in subs]
+CONTENT_TYPES = ["شيتات", "محاضرات", "امتحانات سابقة"]
+TYPE_KEYS = {"شيتات": "s", "محاضرات": "l", "امتحانات سابقة": "e"}
+MAIN_MENU = "القائمة الرئيسية"
+ABOUT = "ℹ️ معلومات عنا"
+
+
+def code_of(subject):
+    m = re.search(r"EE\s*(\d{3})", subject)
+    return "EE" + m.group(1)
+
+
+SUBJECT_BY_CODE = {code_of(s): s for s in ALL_SUBJECTS}
+
+# ===== قاعدة بيانات الفهرس =====
+# تتخزن في رسالة مثبتة في محادثة المشرف مع البوت (عشان ما تضيع عند إعادة التشغيل)
+DB_TAG = "DB:"
+DB_FILE = "index.json"
+db = {"channel": ENV_CHANNEL, "files": {}}
+db_msg = {"id": None}
+lock = threading.Lock()
+
+
+def load_db():
+    try:
+        chat = bot.get_chat(ADMIN_ID)
+        pm = getattr(chat, "pinned_message", None)
+        if pm is not None and pm.text and pm.text.startswith(DB_TAG):
+            data = json.loads(pm.text[len(DB_TAG):])
+            db["files"] = data.get("files", {})
+            if not db["channel"]:
+                db["channel"] = data.get("channel", 0)
+            db_msg["id"] = pm.message_id
+            print("DB loaded from pinned message")
+            return
+    except Exception as e:
+        print("load from pinned failed:", e)
+    try:
+        with open(DB_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+        db["files"] = data.get("files", {})
+        if not db["channel"]:
+            db["channel"] = data.get("channel", 0)
+        print("DB loaded from local file")
+    except Exception as e:
+        print("no local db:", e)
+
+
+def save_db():
+    with lock:
+        text = DB_TAG + json.dumps(
+            {"channel": db["channel"], "files": db["files"]}, separators=(",", ":")
+        )
+        try:
+            with open(DB_FILE, "w", encoding="utf-8") as f:
+                f.write(text[len(DB_TAG):])
+        except Exception as e:
+            print("local save failed:", e)
+        if len(text) > 4000:
+            notify("⚠️ الفهرس كبر وتعدى حد تيليجرام. كلميني عشان نغيّر طريقة التخزين.")
+            return
+        try:
+            if db_msg["id"]:
+                try:
+                    bot.edit_message_text(text, ADMIN_ID, db_msg["id"])
+                    return
+                except Exception as e:
+                    if "not modified" in str(e):
+                        return
+                    print("edit db failed:", e)
+            m = bot.send_message(ADMIN_ID, text)
+            db_msg["id"] = m.message_id
+            try:
+                bot.pin_chat_message(ADMIN_ID, m.message_id, disable_notification=True)
+            except Exception as e:
+                print("pin failed:", e)
+                notify("⚠️ ما قدرت أثبّت رسالة الفهرس. ثبّتيها يدوياً (اضغطي عليها مطولاً ثم تثبيت).")
+        except Exception as e:
+            print("save to telegram failed:", e)
+
+
+def notify(text):
+    try:
+        bot.send_message(ADMIN_ID, text)
+    except Exception as e:
+        print("notify failed:", e)
+
+
+def add_file(code, tkey, mid):
+    with lock:
+        lst = db["files"].setdefault(code, {}).setdefault(tkey, [])
+        if mid not in lst:
+            lst.append(mid)
+            lst.sort()
+    save_db()
+
+
+KEYWORDS = {
+    "EE112": ["حسبان"],
+    "EE113": ["فيزياء"],
+    "EE114": ["مقدمة الحاسوب", "مقدمة حاسوب"],
+    "EE115": ["ورش"],
+    "EE116": ["رسم هندسي"],
+    "EE122": ["اخلاقيات", "أخلاقيات"],
+    "EE123": ["جبر", "تفاضلي"],
+    "EE124": ["برمجة"],
+    "EE125": ["اساسيات الهندسة الكهربائية", "أساسيات الهندسة الكهربائية"],
+    "EE126": ["الكترونيات", "إلكترونيات"],
+    "EE127": ["ميكانيكا", "ديناميكا", "استاتيكا"],
+}
+
+
+def normalize(s):
+    s = (s or "").lower().replace("_", " ")
+    for a, b in (("أ", "ا"), ("إ", "ا"), ("آ", "ا"), ("ة", "ه"), ("ى", "ي")):
+        s = s.replace(a, b)
+    return s
+
+
+KW_NORM = {c: [normalize(k) for k in kws] for c, kws in KEYWORDS.items()}
+
+
+def guess(text):
+    raw = text or ""
+    norm = normalize(raw)
+    code = None
+    m = re.search(r"EE\s*-?\s*(\d{3})", raw, re.I)
+    if m and ("EE" + m.group(1)) in SUBJECT_BY_CODE:
+        code = "EE" + m.group(1)
+    if code is None:
+        hits = [c for c, kws in KW_NORM.items() if any(k in norm for k in kws)]
+        if len(hits) == 1:
+            code = hits[0]
+    t = None
+    if any(k in norm for k in ("امتحان", "اختبار", "exam")):
+        t = "e"
+    elif any(k in norm for k in ("شيت", "تمارين", "sheet", "tutorial")):
+        t = "s"
+    elif any(k in norm for k in ("محاضر", "lecture")):
+        t = "l"
+    return code, t
+
+
+TYPE_NAME = {"s": "شيتات", "l": "محاضرات", "e": "امتحانات سابقة"}
+
+# وضع التسجيل التلقائي: كل ملف يتسجل على مادة ونوع محددين
+mode = {"code": None, "t": None}
+
+# ملخص مجمّع بدل رسالة لكل ملف
+summary = {"counts": {}, "timer": None}
+
+
+def flush_summary():
+    with lock:
+        counts = dict(summary["counts"])
+        summary["counts"] = {}
+        summary["timer"] = None
+    if not counts:
+        return
+    total = sum(counts.values())
+    lines = [f"✅ تمت فهرسة {total} ملف:"]
+    for (code, t), n in counts.items():
+        lines.append(f"- {SUBJECT_BY_CODE[code]} - {TYPE_NAME[t]}: {n}")
+    notify("\n".join(lines))
+
+
+def note_indexed(code, t):
+    with lock:
+        summary["counts"][(code, t)] = summary["counts"].get((code, t), 0) + 1
+        if summary["timer"] is not None:
+            summary["timer"].cancel()
+        summary["timer"] = threading.Timer(4.0, flush_summary)
+        summary["timer"].start()
+
+
+def ask_subject(mid, name):
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    for i, s in enumerate(ALL_SUBJECTS):
+        kb.add(types.InlineKeyboardButton(s, callback_data=f"s|{mid}|{i}"))
+    kb.add(types.InlineKeyboardButton("تجاهل ❌", callback_data=f"x|{mid}"))
+    bot.send_message(ADMIN_ID, f"📁 ملف: {name}\nلأي مادة؟", reply_markup=kb)
+
+
+def process_file(mid, name, text):
+    if mode["code"] and mode["t"]:
+        add_file(mode["code"], mode["t"], mid)
+        note_indexed(mode["code"], mode["t"])
+        return
+    code, t = guess(text)
+    if code and t:
+        add_file(code, t, mid)
+        note_indexed(code, t)
+        return
+    ask_subject(mid, name)
+
+
+def file_name(message):
+    if message.document and message.document.file_name:
+        return message.document.file_name
+    if message.caption:
+        return message.caption[:60]
+    return "ملف"
+
+
 def forward_source(message):
     origin = getattr(message, "forward_origin", None)
     if origin is not None and getattr(origin, "type", "") == "channel":
@@ -103,17 +366,23 @@ def main_markup():
     m.add(MAJORS[2], MAJORS[3])
     m.add(ABOUT)
     return m
+
+
 def semester_markup():
     m = types.ReplyKeyboardMarkup(resize_keyboard=True)
     m.add(SEM1, SEM2)
     m.add(MAIN_MENU)
     return m
+
+
 def subjects_markup(semester):
     m = types.ReplyKeyboardMarkup(resize_keyboard=True)
     for subject in SUBJECTS[semester]:
         m.add(subject)
     m.add(MAIN_MENU)
     return m
+
+
 def content_markup():
     m = types.ReplyKeyboardMarkup(resize_keyboard=True)
     m.add(*CONTENT_TYPES)
@@ -237,4 +506,3 @@ bot.remove_webhook()
 load_db()
 print("Bot is polling...")
 bot.infinity_polling(skip_pending=True, allowed_updates=["message", "callback_query", "channel_post"])
-    
