@@ -1,4 +1,7 @@
 import logging
+import os
+from flask import Flask
+from threading import Thread
 from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -15,9 +18,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- الإعدادات الأساسية ---
-TOKEN = "8768205999:AAEx4VWDnAekCB--ogoKkz_wRSVUq_w4eWg"
+# --- الإعدادات الأساسية (نفس التوكن الثابت بدون تغيير) ---
+TOKEN = "8768205999:AAFW7kHxgSZYuFeA0gpZkK1LsL1AItqORRU"
 ADMIN_ID = 7192709549  # رقمك الخاص لصلاحيات الرفع الحصرية
+
+# --- إعداد سيرفر خفيف لضمان استمرار البوت 24/7 على Render ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "UofK Archive Bot is active and running 24/7!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
 # --- قاعدة بيانات أرقام الملفات (File IDs) لمستودع الأرشيف ---
 ARCHIVE_DATABASE = {
@@ -35,27 +52,28 @@ main_menu_keyboard = [
 main_markup = ReplyKeyboardMarkup(main_menu_keyboard, resize_keyboard=True)
 
 semesters_keyboard = [
-    ["السمستر الأول", "السمستر الثاني"],
+    ["المستوى الأول", "المستوى الثاني"],
     ["الرجوع للتخصصات"],
 ]
 semesters_markup = ReplyKeyboardMarkup(semesters_keyboard, resize_keyboard=True)
 
-# مواد السمستر الأول (مع ميكانيكا الهندسة)
+# مواد المستوى الأول المشتركة والتخصصية الدقيقة
 sem1_subjects_keyboard = [
     ["لغة إنجليزية 1", "الحسبان"],
     ["الفيزياء", "مقدمة الحاسوب"],
     ["أعمال الورش 1", "رسم هندسي"],
     ["ميكانيكا الهندسة (ديناميكا واستاتيكا)"],
-    ["الرجوع للسمسترات"],
+    ["الكيمياء العامة", "أساسيات تصميم النظم الرقمية"],
+    ["الرجوع للمستويات"],
 ]
 sem1_subjects_markup = ReplyKeyboardMarkup(sem1_subjects_keyboard, resize_keyboard=True)
 
-# مواد السمستر الثاني
+# مواد المستوى الثاني المشتركة والتخصصية
 sem2_subjects_keyboard = [
     ["لغة إنجليزية 2", "أخلاقيات المهنة"],
     ["الجبر الخطي والمعادلات التفاضلية", "برمجة الحاسوب"],
     ["أساسيات الهندسة الكهربائية", "أساسيات الالكترونيات التمثالية"],
-    ["الرجوع للسمسترات"],
+    ["الرجوع للمستويات"],
 ]
 sem2_subjects_markup = ReplyKeyboardMarkup(sem2_subjects_keyboard, resize_keyboard=True)
 
@@ -66,45 +84,44 @@ sections_keyboard = [
 sections_markup = ReplyKeyboardMarkup(sections_keyboard, resize_keyboard=True)
 
 
-# --- الدالة الموحدة والمحمية من التكرار ---
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
-        return
+# --- دوال البوت ---
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    await update.message.reply_text(
+        f"أهلاً بك يا مهندس {user.first_name} في الأرشيف المركزي لكلية الهندسة - جامعة الخرطوم.\nاختر التخصص المناسب من لوحة المفاتيح بالأسفل:",
+        reply_markup=main_markup,
+    )
 
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.effective_user.id
     chat_data = context.user_data
 
-    # منع تكرار معالجة نفس النص المتلاحق السريع
-    last_msg = chat_data.get("last_processed_text")
-    if last_msg == text:
-        return  # تجاهل التكرار لو تم استلامه في نفس اللحظة
-    chat_data["last_processed_text"] = text
-
     if text in ["الهندسة الكهربائية (تحكم)", "الهندسة الكهربائية (قدرة)", "هندسة طبية", "هندسة شبكات"]:
         chat_data["current_specialty"] = text
         await update.message.reply_text(
-            f"تم اختيار تخصص: {text}\nاختر السمستر الدراسي:",
+            f"تم اختيار تخصص: {text}\nاختر المستوى الدراسي:",
             reply_markup=semesters_markup,
         )
 
-    elif text == "السمستر الأول":
+    elif text == "المستوى الأول":
         chat_data["current_sem"] = "sem1"
         await update.message.reply_text(
-            "اختر مادة السمستر الأول:", reply_markup=sem1_subjects_markup
+            "اختر مادة المستوى الأول:", reply_markup=sem1_subjects_markup
         )
 
-    elif text == "السمستر الثاني":
+    elif text == "المستوى الثاني":
         chat_data["current_sem"] = "sem2"
         await update.message.reply_text(
-            "اختر مادة السمستر الثاني:", reply_markup=sem2_subjects_markup
+            "اختر مادة المستوى الثاني:", reply_markup=sem2_subjects_markup
         )
 
     elif text in [
         "لغة إنجليزية 1", "الحسبان", "الفيزياء", "مقدمة الحاسوب", "أعمال الورش 1", "رسم هندسي",
-        "ميكانيكا الهندسة (ديناميكا واستاتيكا)", "لغة إنجليزية 2", "أخلاقيات المهنة", 
-        "الجبر الخطي والمعادلات التفاضلية", "برمجة الحاسوب", "أساسيات الهندسة الكهربائية", 
-        "أساسيات الالكترونيات التمثالية"
+        "ميكانيكا الهندسة (ديناميكا واستاتيكا)", "الكيمياء العامة", "أساسيات تصميم النظم الرقمية",
+        "لغة إنجليزية 2", "أخلاقيات المهنة", "الجبر الخطي والمعادلات التفاضلية", 
+        "برمجة الحاسوب", "أساسيات الهندسة الكهربائية", "أساسيات الالكترونيات التمثالية"
     ]:
         chat_data["current_subject"] = text
         await update.message.reply_text(
@@ -130,14 +147,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"📁 قسم ({text}) لم يتم ربط ملفاته بمادة ({subject}) بعد من قبل المشرف."
             )
 
-    elif text in ["الرجوع للقائمة الرئيسية", "التعريف بالبوت", "الرجوع للتخصصات"]:
+    elif text in ["التعريف بالبوت"]:
+        await update.message.reply_text(
+            "هذا البوت مخصص لأرشفة وتوفير المواد الدراسية والشيتات لطلاب كلية الدراسات التقنية والتنموية - جامعة الخرطوم.",
+            reply_markup=main_markup,
+        )
+
+    elif text in ["الرجوع للتخصصات"]:
         await update.message.reply_text(
             "القائمة الرئيسية - اختر التخصص:", reply_markup=main_markup
         )
 
-    elif text == "الرجوع للسمسترات":
+    elif text == "الرجوع للمستويات":
         await update.message.reply_text(
-            "اختر السمستر:", reply_markup=semesters_markup
+            "اختر المستوى الدراسي:", reply_markup=semesters_markup
         )
 
     elif text == "الرجوع للمواد":
@@ -164,15 +187,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    await update.message.reply_text(
-        f"أهلاً بك يا مهندس {user.first_name} في الأرشيف المركزي لكلية الهندسة - جامعة الخرطوم.\nاختر التخصص المناسب من لوحة المفاتيح بالأسفل:",
-        reply_markup=main_markup,
-    )
-
-
 def main():
+    # تشغيل سيرفر الـ Keep-alive في الخلفية لضمان عمل البوت 24/7 على Render
+    keep_alive()
+
     app = (
         ApplicationBuilder()
         .token(TOKEN)
@@ -186,7 +204,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_message))
 
-    print("البوت يعمل الآن بدون تكرار وبثبات تام...")
+    print("البوت يعمل الآن بدون تكرار وبثبات تام 24/7...")
     app.run_polling()
 
 
