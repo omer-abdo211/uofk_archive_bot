@@ -2,15 +2,8 @@ import logging
 import os
 from flask import Flask
 from threading import Thread
-from telegram import ReplyKeyboardMarkup, Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    filters,
-)
-
+import telebot
+from telebot import types
 # تفعيل تسجيل الأخطاء
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
