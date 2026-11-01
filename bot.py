@@ -4,7 +4,7 @@ import telebot
 from telebot import types
 import threading
 
-TOKEN = "876820599:AAFW7KhxgSZYuFeA6pZkK1LsL1AitQORRU"
+TOKEN = "8768205999:AAFE0_AVpAbsL1ddpeUkwEv9ZjeDe9Lpfz0"
 ADMIN_ID = 7192769549
 
 app = Flask('')
