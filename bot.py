@@ -14,7 +14,7 @@ if not TOKEN:
     raise SystemExit("BOT_TOKEN غير موجود. أضفه في Environment Variables في Render.")
 
 bot = telebot.TeleBot(TOKEN)
-app = Flask(name)
+app = Flask("uofk_bot")
 
 
 @app.route("/")
@@ -151,8 +151,7 @@ def run_flask():
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
 
-if name == "main":
-    threading.Thread(target=run_flask, daemon=True).start()
-    bot.remove_webhook()
-    print("Bot is polling...")
-    bot.infinity_polling(skip_pending=True)
+threading.Thread(target=run_flask, daemon=True).start()
+bot.remove_webhook()
+print("Bot is polling...")
+bot.infinity_polling(skip_pending=True)
