@@ -3,7 +3,7 @@ from flask import Flask
 import telebot
 from telebot import types
 
-TOKEN = "876820599:AAFW7KhxgSZYuFeA6pZkK1LsL1Ai tQORRU"
+TOKEN = "876820599:AAFW7KhxgSZYuFeA6pZkK1LsL1AitQORRU"
 ADMIN_ID = 7192769549  # الـ ID الخاص بك للتحكم والصلاحيات
 
 app = Flask('')
