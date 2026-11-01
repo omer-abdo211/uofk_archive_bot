@@ -4,7 +4,7 @@ import telebot
 from telebot import types
 
 TOKEN = "876820599:AAFW7KhxgSZYuFeA6pZkK1LsL1AitQORRU"
-ADMIN_ID = 7192769549  # الـ ID الخاص بك للتحكم والصلاحيات
+ADMIN_ID = 7192769549
 
 app = Flask('')
 
@@ -20,12 +20,10 @@ def send_welcome(message):
     item1 = types.KeyboardButton('📚 الأرشيف والمحاضرات')
     item2 = types.KeyboardButton('ℹ️ معلومات عنا')
     markup.add(item1, item2)
-    
     bot.reply_to(message, "مرحباً بك يا مهندس في بوت أرشيف هندسة جامعة الخرطوم! 🎓\nاختر من الأزرار أدناه:", reply_markup=markup)
 
 @bot.message_handler(func=lambda message: True)
 def echo_all(message):
-    # التحقق من صلاحيات المشرف إذا أردت استخدامها في المستقبل
     if message.text == '📚 الأرشيف والمحاضرات' or message.text == 'الرجوع للمواد':
         semesters_markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         item_s1 = types.KeyboardButton('شيتات')
