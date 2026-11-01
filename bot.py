@@ -4,6 +4,7 @@ import telebot
 from telebot import types
 
 TOKEN = "876820599:AAFW7KhxgSZYuFeA6pZkK1LsL1Ai tQORRU"
+ADMIN_ID = 7192769549  # الـ ID الخاص بك للتحكم والصلاحيات
 
 app = Flask('')
 
@@ -24,6 +25,7 @@ def send_welcome(message):
 
 @bot.message_handler(func=lambda message: True)
 def echo_all(message):
+    # التحقق من صلاحيات المشرف إذا أردت استخدامها في المستقبل
     if message.text == '📚 الأرشيف والمحاضرات' or message.text == 'الرجوع للمواد':
         semesters_markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         item_s1 = types.KeyboardButton('شيتات')
@@ -38,7 +40,7 @@ def echo_all(message):
     elif message.text == 'امتحانات سابقة':
         bot.reply_to(message, "هنا سيتم عرض الامتحانات السابقة.")
     elif message.text == 'ℹ️ معلومات عنا':
-        bot.reply_to(message, "هذا البوت مخصص لمساعدة طلاب كلية الدراسات التقنية والتنموية - جامعة الخرطوم.")
+        bot.reply_to(message, f"هذا البوت مخصص لمساعدة طلاب كلية الدراسات التقنية والتنموية - جامعة الخرطوم.\nمعرف المشرف: {ADMIN_ID}")
     else:
         bot.reply_to(message, "عجباً، لم أفهم هذا الأمر. استخدم القائمة الرئيسية.")
 
